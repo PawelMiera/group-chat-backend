@@ -4,8 +4,8 @@ import uuid
 
 
 class ChatGroup(models.Model):
-    group_id = models.CharField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
-    group_name = models.CharField(max_length=32)
+    group_id = models.CharField(default=uuid.uuid4, editable=False, unique=True)
+    group_name = models.CharField(max_length=50)
     members = models.ManyToManyField(User, through="Membership")
 
     def __str__(self):

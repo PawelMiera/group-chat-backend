@@ -3,7 +3,7 @@ import json
 from .models import GroupMessage, ChatGroup, Membership
 from django.shortcuts import get_object_or_404
 from asgiref.sync import async_to_sync
-
+from .utils import get_all_groups
 
 class ChatConsumer(WebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -12,59 +12,69 @@ class ChatConsumer(WebsocketConsumer):
         self.groups = set()
 
     def refresh_groups(self):
-        member_groups = Membership.objects.get(user=self.user)
-        for member_group in member_groups:
-            group_id = member_group.group.group_id
-            if group_id not in self.groups:
-                print("ADDING NEW GROUP", member_group.group.group_id)
+        groups = get_all_groups(self.user)
+        for group in groups:
+            group_id_str = str(group.id)
+            if group_id_str not in self.groups:
+                print("ADDING NEW GROUP", group_id_str)
                 async_to_sync(self.channel_layer.group_add)(
-                    group_id, self.channel_name
+                    group_id_str, self.channel_name
                 )
-                self.groups.add(member_group.group.group_id)
+                self.groups.add(group_id_str)
 
     def connect(self):
         self.user = self.scope["user"]
+        print("new ws connection")
         if self.user and self.user.is_authenticated:
-
-            member_groups = Membership.objects.get(user=self.user)
-            for member_group in member_groups:
+            groups = get_all_groups(self.user)
+            for group in groups:
+                group_id_str = str(group.id)
                 async_to_sync(self.channel_layer.group_add)(
-                    member_group.group.group_id, self.channel_name
+                    group_id_str, self.channel_name
                 )
-                self.groups.add(member_group.group.group_id)
-                print(member_group.group.group_id)
+                self.groups.add(group_id_str)
+                print(group_id_str)
             self.accept()
 
         else:
             self.close(3000, "Unauthorized")
 
     def receive(self, text_data=None, bytes_data=None):
-        data = json.loads(text_data)
-        if data:
-            if "refreshGroups" in data and data["refreshGroups"]:
-                self.refresh_groups()
+        print("MSG:", text_data)
 
-            if data["group"] in self.groups:
-                chatroom = get_object_or_404(ChatGroup, group_id=data["group"])
-                msg_text = data["msg"]
-                GroupMessage.objects.create(
-                    group=chatroom,
-                    msg=msg_text,
-                    author=self.user
-                )
+        try:
+            data = json.loads(text_data)
+            if data:
+                if "command" in data:
+                    if data["command"] == "refreshGroups":
+                        self.refresh_groups()
+                    elif data["command"] == "ping":
+                        self.send(text_data="pong")
+                    return
 
-                data["user"] = self.user.username
+                if "group" in data and data["group"] in self.groups:
+                    curr_group = get_object_or_404(ChatGroup, id=data["group"])
 
-                event = {
-                    "type": "message_handler",
-                    "data": data
-                }
+                    msg_text = data["msg"]
+                    new_msg = GroupMessage.objects.create(
+                        group=curr_group,
+                        msg=msg_text,
+                        author=self.user
+                    )
 
-                async_to_sync(self.channel_layer.group_send)(
-                    data["group"], event
-                )
-            else:
-                print(self.user + " not in " + data["group"])
+                    data["author"] = self.user.id
+                    data["created"] = str(new_msg.created)
+                    event = {
+                        "type": "message_handler",
+                        "data": data
+                    }
+
+                    async_to_sync(self.channel_layer.group_send)(
+                        data["group"], event
+                    )
+        except Exception as e:
+            print(e)
+            print("MSG:", text_data)
 
     def message_handler(self, event):
         self.send(text_data=json.dumps(event["data"]))
