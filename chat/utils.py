@@ -20,7 +20,7 @@ def get_all_messages(user, start, end):
     groups_data = ChatGroup.objects.filter(id__in=groups)
     all_messages = {}
     for group in groups_data:
-        all_messages[group.group_id] = get_messages(group, start, end)
+        all_messages[group.uuid] = get_messages(group, start, end)
     return all_messages
 
 
@@ -29,8 +29,9 @@ def get_users(groups):
     users = User.objects.filter(id__in=members)
     out_users = []
     for user in users:
-        name = user.first_name if user.first_name != "" else user.username
-        out_users.append({"name": name, "date_joined": user.date_joined, "id": user.id})
+        name = user.first_name if (user.first_name and user.first_name != "") else user.username
+        out_users.append(
+            {"name": name, "date_joined": user.date_joined, "id": user.id, "avatar": user.extendeduser.avatar})
     return out_users
 
 
@@ -46,14 +47,34 @@ def get_all(user, start, end):
         if len(messages) > 0:
             last_msg = messages[-1]
         curr_group_member_ids = list(Membership.objects.filter(group=group).values_list('user', flat=True))
-        out_group = {"id": group.id, "name": group.group_name, "uuid": group.group_id, "members": curr_group_member_ids,
-                     "last_msg": last_msg}
+        out_group = {"id": group.id, "name": group.name, "uuid": group.uuid, "members": curr_group_member_ids,
+                     "last_msg": last_msg, "avatar": group.avatar}
         out_groups.append(out_group)
         out_messages.append({"group_id": group.id, "messages": messages})
 
-    return {"groups": out_groups, "users": out_users, "messages": out_messages, "curr_user": user.id}
+    curr_user = {"username": user.username, "date_joined": user.date_joined, "id": user.id, "nickname": user.first_name,
+                 "avatar": user.extendeduser.avatar}
 
-def get_all_groups(user):
+    return {"groups": out_groups, "users": out_users, "messages": out_messages, "curr_user": curr_user}
+
+
+def get_single_group(group, start=0, end=25):
+    messages = get_messages(group, start, end)
+    last_msg = {"msg": "", "author": "", "created": ""}
+    if len(messages) > 0:
+        last_msg = messages[-1]
+    curr_group_member_ids = list(Membership.objects.filter(group=group).values_list('user', flat=True))
+    out_users = get_users([group])
+
+    return {"id": group.id, "name": group.name, "uuid": group.uuid, "members": curr_group_member_ids,
+            "last_msg": last_msg, "users": out_users, "messages": messages, "avatar": group.avatar}
+
+
+def get_all_groups_raw(user):
     groups = Membership.objects.filter(user=user).values_list("group", flat=True)
     groups_data = ChatGroup.objects.filter(id__in=groups)
     return groups_data
+
+def get_all_group_ids(user):
+    group_ids = Membership.objects.filter(user=user).values_list("group", flat=True)
+    return list(group_ids)

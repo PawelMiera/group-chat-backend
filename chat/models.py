@@ -4,12 +4,13 @@ import uuid
 
 
 class ChatGroup(models.Model):
-    group_id = models.CharField(default=uuid.uuid4, editable=False, unique=True)
-    group_name = models.CharField(max_length=50)
+    uuid = models.CharField(default=uuid.uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=50)
+    avatar = models.CharField(max_length=1000000)
     members = models.ManyToManyField(User, through="Membership")
 
     def __str__(self):
-        return f'{self.group_name}: {self.group_id}'
+        return f'{self.name}: {self.uuid}'
 
 
 class GroupMessage(models.Model):

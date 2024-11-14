@@ -1,9 +1,11 @@
-from channels.generic.websocket import WebsocketConsumer
 import json
-from .models import GroupMessage, ChatGroup, Membership
-from django.shortcuts import get_object_or_404
+
 from asgiref.sync import async_to_sync
-from .utils import get_all_groups
+from channels.generic.websocket import WebsocketConsumer
+
+from .models import GroupMessage, ChatGroup
+from .utils import get_all_group_ids
+
 
 class ChatConsumer(WebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -12,11 +14,10 @@ class ChatConsumer(WebsocketConsumer):
         self.groups = set()
 
     def refresh_groups(self):
-        groups = get_all_groups(self.user)
-        for group in groups:
-            group_id_str = str(group.id)
+        group_ids = get_all_group_ids(self.user)
+        for group_id in group_ids:
+            group_id_str = str(group_id)
             if group_id_str not in self.groups:
-                print("ADDING NEW GROUP", group_id_str)
                 async_to_sync(self.channel_layer.group_add)(
                     group_id_str, self.channel_name
                 )
@@ -26,9 +27,9 @@ class ChatConsumer(WebsocketConsumer):
         self.user = self.scope["user"]
         print("new ws connection")
         if self.user and self.user.is_authenticated:
-            groups = get_all_groups(self.user)
-            for group in groups:
-                group_id_str = str(group.id)
+            group_ids = get_all_group_ids(self.user)
+            for group_id in group_ids:
+                group_id_str = str(group_id)
                 async_to_sync(self.channel_layer.group_add)(
                     group_id_str, self.channel_name
                 )
@@ -53,7 +54,7 @@ class ChatConsumer(WebsocketConsumer):
                     return
 
                 if "group" in data and data["group"] in self.groups:
-                    curr_group = get_object_or_404(ChatGroup, id=data["group"])
+                    curr_group = ChatGroup.objects.get(id=data["group"])
 
                     msg_text = data["msg"]
                     new_msg = GroupMessage.objects.create(
@@ -80,6 +81,7 @@ class ChatConsumer(WebsocketConsumer):
         self.send(text_data=json.dumps(event["data"]))
 
     def disconnect(self, code):
+        print("Disconnect")
         for group_id in self.groups:
             async_to_sync(self.channel_layer.group_discard)(
                 group_id, self.channel_name
