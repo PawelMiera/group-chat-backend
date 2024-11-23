@@ -5,10 +5,12 @@ urlpatterns = [
     path('groups/new/', views.CreateGroupView.as_view(), name='chat_message_view'),
     path('groups/join/', views.JoinGroupView.as_view(), name='chat_message_view'),
     path('groups/all/', views.AllGroupsView.as_view(), name='chat_message_view'),
-    path('groups/messages/all', views.AllGroupsMessagesView.as_view(), name='chat_message_view'),
-    path('groups/users/all', views.AllGroupsUsersView.as_view(), name='chat_message_view'),
+    path('groups/messages/all/', views.AllGroupsMessagesView.as_view(), name='chat_message_view'),
+    path('groups/users/', views.GroupUsersView.as_view(), name='chat_message_view'),
+    path('groups/users/all/', views.AllGroupUsersView.as_view(), name='chat_message_view'),
 
     path('groups/', views.GroupView.as_view(), name='chat_message_view'),
+    path('groups/leave/', views.LeaveGroupView.as_view(), name='chat_message_view'),
     path('groups/messages/', views.MessageView.as_view(), name='chat_message_view'),
     # path('groups/users/', views.MessageView.as_view(), name='chat_message_view'),
 

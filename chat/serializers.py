@@ -80,6 +80,7 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class GetMessageValidator(forms.Form):
+    groupUuid = forms.UUIDField()
     start = forms.IntegerField()
     end = forms.IntegerField()
 
@@ -102,6 +103,10 @@ class AllGroupsMessagesValidator(forms.Form):
 class GroupValidator(forms.Form):
     uuid = forms.CharField()
 
+class GroupWithMessagesValidator(forms.Form):
+    uuid = forms.CharField()
+    start = forms.IntegerField()
+    end = forms.IntegerField()
 
 class GetMessageSerializer(serializers.ModelSerializer):
     class Meta:
