@@ -20,9 +20,10 @@ from chat.utils import get_all_group_ids
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
-import datetime
 import shortuuid
 from names_generator import generate_name
+from django.db.models.functions import Now
+
 
 class RegisterLoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -113,7 +114,7 @@ class RegisterAnonymousView(APIView):
         user = User.objects.create(
             username=shortuuid.uuid(),
             first_name=nickname,
-            last_login=datetime.datetime.now(),
+            last_login=Now(),
             password="anonymous"
         )
 
@@ -203,28 +204,32 @@ class UserView(APIView):
         return Response()
 
     def patch(self, request):
-        data = request.data
 
-        request.user.first_name = data.get("first_name", request.user.first_name)
-        request.user.extendeduser.avatar = data.get("avatar", request.user.extendeduser.avatar)
+        if not request.user.extendeduser.anonymous:
+            data = request.data
 
-        request.user.save(update_fields=["first_name"])
-        request.user.extendeduser.save(update_fields=["avatar"])
-        serializer = UserSerializer(request.user)
+            request.user.first_name = data.get("first_name", request.user.first_name)
+            request.user.extendeduser.avatar = data.get("avatar", request.user.extendeduser.avatar)
 
-        all_ids = get_all_group_ids(request.user)
-        channel_layer = get_channel_layer()
+            request.user.save(update_fields=["first_name"])
+            request.user.extendeduser.save(update_fields=["avatar"])
+            serializer = UserSerializer(request.user)
 
-        for curr_id in all_ids:
-            async_to_sync(channel_layer.group_send)(
-                str(curr_id),
-                {
-                    'type': 'user_update',
-                    'msg': str(curr_id)
-                }
-            )
+            all_ids = get_all_group_ids(request.user)
+            channel_layer = get_channel_layer()
 
-        return Response(serializer.data)
+            for curr_id in all_ids:
+                async_to_sync(channel_layer.group_send)(
+                    str(curr_id),
+                    {
+                        'type': 'user_update',
+                        'msg': str(curr_id)
+                    }
+                )
+
+            return Response(serializer.data)
+
+        return Response({"error": "User is anonymous"}, status=status.HTTP_403_FORBIDDEN)
 
 
 class TokenRotateView(APIView):
@@ -239,6 +244,7 @@ class CheckInView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        request.user.last_login = datetime.datetime.now()
+        request.user.last_login = Now()
+
         request.user.save(update_fields=["last_login"])
         return Response()
