@@ -1,3 +1,12 @@
 djangorestframework-simplejwt
 djangorestframework
 django-cors-headers
+channels[daphne]
+channels-auth-token-middlewares
+wheel
+psycopg2
+py-avataaars
+opencv-python
+identicons
+shortuuid
+names-generator
