@@ -1,9 +1,9 @@
-from django.core.management.base import BaseCommand, CommandError
-from django.contrib.auth.models import User
-from users.models import ExtendedUser
-from django.db.models.functions import Now
 from datetime import timedelta
-from datetime import datetime, timedelta, timezone
+
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
+from django.db.models.functions import Now
+
 
 class Command(BaseCommand):
     help = "Removes all inactive anonymous users"
